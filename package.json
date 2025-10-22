@@ -8,8 +8,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "## Overview In this project, I’ll walk you through how I Dockerized a Node.js application using security and optimization best practices. We'll go from building a simple Express API to scanning the Docker image for vulnerabilities, tagging it properly, and pushing it to Docker Hub.",
   "dependencies": {
     "express": "^5.1.0"
-  }
+  },
+  "devDependencies": {}
 }
