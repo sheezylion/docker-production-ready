@@ -1,202 +1,147 @@
-# TASK:                     Build a production-ready Docker image for an existing app, implement security best practices, and push it to your personal Docker Hub account with versioning.
+# Automated Deployment Bash script
 
-## Overview
-In this project, I’ll walk you through how I Dockerized a Node.js application using security and optimization best practices. We'll go from building a simple Express API to scanning the Docker image for vulnerabilities, tagging it properly, and pushing it to Docker Hub.
+## Project Overview
+This project automates the deployment of a Dockerized web application using a single Bash script (deploy.sh).
+The script installs and configures all necessary dependencies (Docker, Docker Compose, and Nginx), deploys your application, and sets up an Nginx reverse proxy to serve traffic on port 80.
 
-This guide is beginner-friendly and explains why each step is important, just as I learned and applied it.
+It is fully idempotent, cross-platform, and includes logging with timestamps for traceability and debugging.
 
-## Tools & Tech Used
-- Node.js (Express.js)
+### **Supported Environments**
 
-- Docker
+The script works seamlessly across:
 
-- Docker Hub
+- Ubuntu (20.04 / 22.04 / 24.04)
 
-- Trivy (for vulnerability scanning)
+- Amazon Linux 2 / 2023
 
-- GitHub
+- Debian / RHEL-based distributions
 
-## Step-by-Step Process
-### Step 1: Set Up the Node.js App
-Let’s create a simple Express app.
+It automatically detects and uses the correct package manager (apt-get, yum, or dnf).
 
-Create project folder:
+### **Features**
 
-```
-mkdir node-app
-cd node-app
-```
+Collects user input interactively:
 
-Initialize Node.js project:
+- Git repository URL
 
-```
-npm init -y
-```
+- Personal Access Token (hidden input for security)
 
-This creates your **package.json.**
+- Branch name
 
-<img width="712" alt="Screenshot 2025-04-19 at 07 49 32" src="https://github.com/user-attachments/assets/8ab418fe-e535-402a-8287-467ddff3dfdc" />
+- Remote SSH username and IP address
 
-Install Express:
+- Path to SSH key
+  
+- Internal container port
 
-```
-npm install express
-```
-<img width="1173" alt="Screenshot 2025-04-19 at 07 53 13" src="https://github.com/user-attachments/assets/e3c077ca-0425-4fd9-baf6-6d4f24cc297a" />
+<img width="736" height="689" alt="Screenshot 2025-10-22 at 22 15 01" src="https://github.com/user-attachments/assets/3178cba2-5345-4f32-b726-d598b01ebf8c" />
 
+Once all the above details is confirmed, the script:
 
-Create app.js file:
+- Installs Docker, Docker Compose, and Nginx (if missing)
 
-```
-touch app.js
-```
+- Clones or updates the source code repository
 
-```
-// app.js
-const express = require("express");
-const app = express();
+- Builds and deploys the application via Docker
 
-app.get("/", (req, res) => {
-  res.json({ message: "Hello from Segun’s Dockerized Node.js app!" });
-});
+- Configures Nginx reverse proxy to forward traffic to port 80
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`App running on port ${PORT}`);
-});
-```
+- Handles cleanup automatically if any error occurs
 
-<img width="1167" alt="Screenshot 2025-04-19 at 07 53 50" src="https://github.com/user-attachments/assets/030fc404-1fa9-40b0-911e-73a9e42e0162" />
+- Ensures idempotency — safe to re-run anytime
 
-### Step 2: Add .dockerignore
-Avoid copying unnecessary files into the Docker image.
-
-Create a .dockerignore file:
+Logs all actions with timestamps to a file like:
 
 ```
-touch .dockerignore
+deploy_20251022_220844.log
 ```
+<img width="648" height="499" alt="Screenshot 2025-10-22 at 22 16 19" src="https://github.com/user-attachments/assets/59fc838c-466b-45f6-a8f5-f6b92e9e1ef9" />
 
-```
-node_modules
-npm-debug.log
-Dockerfile
-.dockerignore
-.git
-.gitignore
-```
 
-<img width="921" alt="Screenshot 2025-04-19 at 08 00 16" src="https://github.com/user-attachments/assets/34fe055b-fe5f-4367-8381-7fd8723ca4fb" />
+### **Step-by-Step Usage Guide**
 
-### Step 3: Write a Production-Ready Dockerfile
-Now let’s write a Dockerfile using best practices:
+- Clone or copy the deploy.sh script to your local machine.
+
+- Make the script executable:
 
 ```
-# Stage 1: Install dependencies
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm ci --omit=dev
-
-# Copy the application source
-COPY . .
-
-# Stage 2: Create a secure and minimal image
-FROM node:18-alpine
-
-# Create non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-WORKDIR /app
-COPY --from=builder /app .
-
-# Set ownership and switch user
-RUN chown -R appuser:appgroup /app
-USER appuser
-
-EXPOSE 3000
-CMD ["node", "app.js"]
+chmod +x deploy.sh
 ```
 
-<img width="1101" alt="Screenshot 2025-04-19 at 08 01 04" src="https://github.com/user-attachments/assets/65d84c14-86ae-4474-879d-0f6ab91144a8" />
-
-### Step 4: Build the Docker Image
+- Run the script:
 
 ```
-docker build -t sheezylion/docker-node-app:v1.0.0 .
+./deploy.sh
 ```
 
-<img width="1376" alt="Screenshot 2025-04-19 at 08 07 24" src="https://github.com/user-attachments/assets/7e31fe23-0ef6-46c1-a321-1d385b18fccc" />
+**When prompted, enter:**
 
-Also tag it as latest:
+- Git repository URL (e.g., https://github.com/username/repo.git)
 
-```
-docker tag sheezylion/docker-node-app:v1.0.0 sheezylion/docker-node-app:latest
-```
+- Personal Access Token (hidden input)
 
-<img width="880" alt="Screenshot 2025-04-19 at 08 09 18" src="https://github.com/user-attachments/assets/21916cbc-80d9-4cc4-927b-7f602081b4da" />
+- Branch name (default is main)
 
-### Step 5: Run and Test the Container
+- SSH username (e.g., ubuntu or ec2-user)
 
-```
-docker run -p 3000:3000 sheezylion/docker-node-app:v1.0.0
-```
+- Server IP address
 
-Visit http://localhost:3000 and you should see the JSON response.
+- SSH private key path (e.g., ~/.ssh/id_rsa)
 
-<img width="1317" alt="Screenshot 2025-04-19 at 08 09 55" src="https://github.com/user-attachments/assets/71846c99-ae27-480f-a256-a558675c52a1" />
+- Application internal port (e.g., 3000)
 
-### Step 6: Scan for Vulnerabilities with Trivy
-Install Trivy:
+**The script will:**
 
-```
-brew install aquasecurity/trivy/trivy    # Mac
-sudo apt install trivy                   # Linux
-```
+- Connect to your server via SSH
 
-<img width="1378" alt="Screenshot 2025-04-19 at 08 12 21" src="https://github.com/user-attachments/assets/3ae324b8-2a30-42b2-8c36-498e37dec7b9" />
+- Install or verify Docker and Nginx
 
-Scan your image:
+- Build and run the Docker container
+
+- Configure Nginx to forward port 80 → internal app port
+
+- Validate the deployment automatically
+
+**After completion, check your app by visiting:**
 
 ```
-trivy image sheezylion/docker-node-app:v1.0.0
+http://<YOUR_SERVER_IP>
 ```
 
-<img width="1379" alt="Screenshot 2025-04-19 at 08 14 39" src="https://github.com/user-attachments/assets/cd228e26-9f2e-42d9-af1a-b6a37389d8e4" />
+<img width="1190" height="551" alt="Screenshot 2025-10-22 at 22 17 18" src="https://github.com/user-attachments/assets/cc2630c5-6f72-40fb-b473-d94efb7b9707" />
 
-I reviewed all vulnerabilities and ensured no critical ones were present. The use of Alpine and npm ci --omit=dev helped reduce attack surface.
+**Cleanup Instructions**
 
-### Step 7: Push Image to Docker Hub
+If you need to remove all containers, images, and configurations:
 
 ```
-docker push sheezylion/docker-node-app:v1.0.0
-docker push sheezylion/docker-node-app:latest
+./deploy.sh --cleanup
 ```
 
-<img width="1300" alt="Screenshot 2025-04-19 at 08 16 04" src="https://github.com/user-attachments/assets/0f94c879-8a9e-48fe-a636-8aeb1133a5de" />
+<img width="702" height="472" alt="Screenshot 2025-10-22 at 22 21 16" src="https://github.com/user-attachments/assets/1e59a070-e0ed-4793-8a0b-d05c8a43a855" />
 
-<img width="1678" alt="Screenshot 2025-04-19 at 08 16 36" src="https://github.com/user-attachments/assets/974e16f2-0bba-4f65-9d0b-912c7b5c0ea9" />
 
-<img width="1679" alt="Screenshot 2025-04-19 at 08 17 04" src="https://github.com/user-attachments/assets/0d766495-1281-40c3-bc35-f0b58c31f943" />
+**This will:**
 
-## Conclusion
-In this project, I successfully containerized a Node.js application using Docker by implementing best practices for production-ready images. I focused on security, performance, and maintainability by:
+- Stop and remove all running containers
 
-- Creating a lightweight, multi-stage Dockerfile with a minimal base image (Alpine)
+- Clean Docker networks and images
 
-- Running the app as a non-root user to enhance security
+- Remove Nginx configurations
 
-- Adding a .dockerignore file to reduce image bloat and speed up builds
+- Restore the server to a safe, clean state
 
-- Using version tagging (v1.0.0, latest) to ensure traceability of builds
+### **Idempotency**
 
-- Scanning the image with Trivy to identify vulnerabilities and addressing them appropriately
+The script can be run multiple times without causing conflicts:
 
-- Publishing the final Docker image to my personal Docker Hub account
+- Existing containers are safely stopped and replaced.
 
-This setup demonstrates how to securely and efficiently build Docker images that are ready for deployment in real-world environments. All steps were documented in a way that beginners can easily follow, ensuring the project serves both as a learning experience and a practical DevOps portfolio piece.
+- Dependencies are checked before installation.
+
+- Nginx configurations are overwritten cleanly.
+
+- If something fails, automatic cleanup restores a stable state.
+
+The deployment.sh script is designed for environments where repeatable and predictable deployments are required without relying on external tools like Ansible or Terraform.
 
